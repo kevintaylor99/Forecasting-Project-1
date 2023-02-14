@@ -4,6 +4,7 @@ import datetime
 import matplotlib.pyplot as plt
 from scipy import signal
 from math import *
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def create_kwh_dataframe(df):
     """
@@ -86,17 +87,28 @@ def MAPE(actual, predicted):
     """
     Measure the mean absolute percentage error (MAPE)
     """
-    return sqrt(abs(actual-predicted)/actual)
+    return np.mean(np.abs(actual-predicted)/actual)
 
-def walk_forward_validation_sarimax(df, model, n_test):
+def walk_forward_validation_sarimax(df, n_test, p, d, q, s_p, s_d, s_q, seasonality):
     """
     Perform walk-forward validation with a defined n_test in the data
+
+    Parameters
+    ----------
+    df (pd.DataFrame) - input timeseries DataFrame
+    n_test (int) - number of test points
+    p, d, q, s_p, s_d, s_q, seasonality (int) - SARIMAX parameters
     """
     train, test = train_test_split(df, n_test)
-    model = model.fit(max_iter = 20, method = 'powell')
+    model = SARIMAX(
+        train,
+        order = (p, d, q),
+        seasonal_order = (s_p, s_d, s_q, seasonality)
+    )
+    model_fit = model.fit(max_iter = 20, method = 'powell')
     # walk forward
-    predictions = model.forecast(n_test)
-    predictions.append(yhat) #store the forecast
+    predictions = model_fit.forecast(n_test)
     # estimate error
-    return predictions, MAPE(test.value, predictions)
+    return train, test, model_fit.predict(), predictions
+
 
