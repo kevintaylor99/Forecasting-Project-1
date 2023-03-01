@@ -105,7 +105,7 @@ def walk_forward_validation_sarimax(df, n_test, p, d, q, s_p, s_d, s_q, seasonal
         order = (p, d, q),
         seasonal_order = (s_p, s_d, s_q, seasonality)
     )
-    model_fit = model.fit(max_iter = 20, method = 'powell')
+    model_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
     # walk forward
     predictions = model_fit.forecast(n_test)
     # estimate error
