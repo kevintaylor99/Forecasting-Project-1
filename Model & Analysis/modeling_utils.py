@@ -77,11 +77,11 @@ def ts_plots(df, auto_lags):
     print('Max Power at period {}'.format(1/freqs[psd == max(psd)][0]))
     return
 
-def train_test_split(df, n_test):
+def train_test_split(df, n_test, n_validation):
     """
     Split the train and test data, maintaining the order
     """
-    return df[:-n_test], df[-n_test:]
+    return df[:-n_validation], df[n_validation:n_test], df[-n_test:]
 
 def MAPE(actual, predicted):
     """
@@ -89,7 +89,7 @@ def MAPE(actual, predicted):
     """
     return np.mean(np.abs(actual-predicted)/actual)
 
-def walk_forward_validation_sarimax(df, n_test, p, d, q, s_p, s_d, s_q, seasonality):
+def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d, s_q, seasonality):
     """
     Perform walk-forward validation with a defined n_test in the data
 
@@ -99,16 +99,17 @@ def walk_forward_validation_sarimax(df, n_test, p, d, q, s_p, s_d, s_q, seasonal
     n_test (int) - number of test points
     p, d, q, s_p, s_d, s_q, seasonality (int) - SARIMAX parameters
     """
-    train, test = train_test_split(df, n_test)
+    train, valid, test = train_test_split(df, n_test, n_validation)
     model = SARIMAX(
         train,
         order = (p, d, q),
         seasonal_order = (s_p, s_d, s_q, seasonality)
     )
     model_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
+    valid_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
     # walk forward
     predictions = model_fit.forecast(n_test)
     # estimate error
-    return train, test, model_fit.predict(), predictions
+    return train, valid, test, model_fit.predict(), valid_fit.predict(), predictions
 
 
