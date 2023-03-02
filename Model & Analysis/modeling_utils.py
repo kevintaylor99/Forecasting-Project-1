@@ -80,8 +80,21 @@ def ts_plots(df, auto_lags):
 def train_test_split(df, n_test, n_validation):
     """
     Split the train and test data, maintaining the order
+    Splits the test set into three equal parts, returns all 5 DataFrames
+
+    Parameters
+    ----------
+    df (pd.DataFrame) - input timeseries DataFrame
+    n_test (int) - number of test points
+    n_validation (int) - number of validation points
+
+    Returns
+    -------
+    Five DataFrames corresponding to train, validation, and test 1, 2, 3
     """
-    return df[:-n_validation], df[n_validation:n_test], df[-n_test:]
+    test_set = df[-n_test:]
+    test_thirds = round(1/3*len(test_set))
+    return df[:-n_validation-n_test], df[-n_validation-n_test:-n_test], test_set[:-2*test_thirds], test_set[-2*test_thirds:-test_thirds], test_set[-test_thirds:]
 
 def MAPE(actual, predicted):
     """
@@ -89,7 +102,7 @@ def MAPE(actual, predicted):
     """
     return np.mean(np.abs(actual-predicted)/actual)
 
-def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d, s_q, seasonality):
+def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d, s_q, seasonality, type = 'valid'):
     """
     Perform walk-forward validation with a defined n_test in the data
 
@@ -97,19 +110,30 @@ def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d,
     ----------
     df (pd.DataFrame) - input timeseries DataFrame
     n_test (int) - number of test points
+    n_validation (int) - number of validation points
     p, d, q, s_p, s_d, s_q, seasonality (int) - SARIMAX parameters
+    type - specifies validation or test predictions, which to output
     """
-    train, valid, test = train_test_split(df, n_test, n_validation)
-    model = SARIMAX(
-        train,
-        order = (p, d, q),
-        seasonal_order = (s_p, s_d, s_q, seasonality)
-    )
-    model_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
-    valid_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
-    # walk forward
-    predictions = model_fit.forecast(n_test)
-    # estimate error
-    return train, valid, test, model_fit.predict(), valid_fit.predict(), predictions
-
-
+    train, valid, test1, test2, test3 = train_test_split(df, n_test, n_validation)
+    l1, l2, l3 = len(test1), len(test2), len(test3)
+    if type == 'valid':
+        model = SARIMAX( # validation case - train on training set only
+            train,
+            order = (p, d, q),
+            seasonal_order = (s_p, s_d, s_q, seasonality)
+        )
+        model_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
+        predictions = model_fit.forecast(len(valid))
+        # estimate error
+        return train, valid, model_fit.predict(), predictions
+    else:
+        model = SARIMAX( # test case - train on training and validation set 
+            train.append(valid),
+            order = (p, d, q),
+            seasonal_order = (s_p, s_d, s_q, seasonality)
+        )
+        model_fit = model.fit(max_iter = 20, method = 'powell', disp = False)
+        # walk forward
+        predictions = model_fit.forecast(len(test1) + len(test2) + len(test3))
+        # estimate error
+        return train.append(valid), [test1, test2, test3], model_fit.predict(), [predictions[:l1], predictions[l1:l1+l2], predictions[l1+l2:]]
