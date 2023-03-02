@@ -139,7 +139,7 @@ def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d,
         # estimate error
         return train.append(valid), [test1, test2, test3], model_fit.predict(), [predictions[:l1], predictions[l1:l1+l2], predictions[l1+l2:]]
     
-def walk_forward_validation_prophet(df, n_test, n_validation, type = 'valid'):
+def walk_forward_validation_prophet(df, n_test, n_validation, type, period, fourier_order, monthly):
     """
     Perform walk-forward validation with a defined n_test in the data
 
@@ -149,9 +149,53 @@ def walk_forward_validation_prophet(df, n_test, n_validation, type = 'valid'):
     n_test (int) - number of test points
     n_validation (int) - number of validation points
     type - specifies validation or test predictions, which to output
+    growth (str) - prophet growth parameter
+    period (float) prophet period for seasonality
+    fourier_order (str) - fourier order for seasonality
+    monthly (bool) - whether or not to include monthly trend
     """
     train, valid, test1, test2, test3 = train_test_split(df, n_test, n_validation)
-    l1, l2, l3 = len(test1), len(test2), len(test3)
-    model = Prophet()
+    model = Prophet(
+        daily_seasonality = False,
+        weekly_seasonality = False,
+        yearly_seasonality = False
+    ).add_seasonality(name = 'yearly', period = period, fourier_order = fourier_order)
+    train['ds'] = train.index.values # format for Prophet modeling
+    if monthly:
+        model = model.add_seasonality(name = 'monthly', period = 30.5, fourier_order = 50)
+    train.rename(columns = {'value': 'y'}, inplace = True)
+    valid['ds'] = valid.index.values
+    valid.rename(columns = {'value': 'y'}, inplace = True)
+    test1['ds'] = test1.index.values
+    test1.rename(columns = {'value': 'y'}, inplace = True)
+    test2['ds'] = test2.index.values
+    test2.rename(columns = {'value': 'y'}, inplace = True)
+    test3['ds'] = test3.index.values
+    test3.rename(columns = {'value': 'y'}, inplace = True)
     if type == 'valid':
+        model.fit(train) # fit on training data
+        fit = model.predict(pd.DataFrame({'ds': train['ds']}))[['ds', 'yhat']].set_index('ds').rename(columns = {'yhat': 'value'})
+        predictions = model.predict(pd.DataFrame({'ds': valid['ds']}))[['ds', 'yhat']].set_index('ds').rename(columns = {'yhat': 'value'})
+        train = train.rename(columns = {'y': 'value'}).set_index('ds')
+        valid = valid.rename(columns = {'y': 'value'}).set_index('ds')
+        return train, valid, fit, predictions
+    else:
+        model.fit(train.append(valid)) # fit on train and validation data
+        fit = model.predict(pd.DataFrame({'ds': train.append(valid)['ds']}))[['ds', 'yhat']].set_index('ds').rename(columns = {'yhat': 'value'})
+        predictions = [model.predict(
+            pd.DataFrame({'ds': df['ds']}))[['ds', 'yhat']].set_index('ds').rename(columns = {'yhat': 'value'})
+            for df in [test1, test2, test3]]
+        return train.append(valid).rename(columns = {'y': 'value'}).set_index('ds'), [test1, test2, test3], fit, predictions
         
+
+    ## FB Prophet ##
+    prophet_train = train_valid_test_split(weekly_overall, round(len(weekly_overall)*0.80), round(0.6*len(weekly_overall)))[0]
+    prophet_valid = train_valid_test_split(weekly_overall, round(len(weekly_overall)*0.80), round(0.6*len(weekly_overall)))[1]
+    prophet_test = train_valid_test_split(weekly_overall, round(len(weekly_overall)*0.80), round(0.6*len(weekly_overall)))[2]
+
+    prophet_train['ds'] = prophet_train.index.values
+    prophet_train.rename(columns = {'value': 'y'}, inplace = True)
+    prophet_valid['ds'] = prophet_valid.index.values
+    prophet_valid.rename(columns = {'value': 'y'}, inplace = True)
+    prophet_test['ds'] = prophet_test.index.values
+    prophet_test.rename(columns = {'value': 'y'}, inplace = True)
