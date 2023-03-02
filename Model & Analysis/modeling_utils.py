@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from math import *
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from prophet import Prophet
 
 def create_kwh_dataframe(df):
     """
@@ -139,4 +140,18 @@ def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d,
         return train.append(valid), [test1, test2, test3], model_fit.predict(), [predictions[:l1], predictions[l1:l1+l2], predictions[l1+l2:]]
     
 def walk_forward_validation_prophet(df, n_test, n_validation, type = 'valid'):
-    
+    """
+    Perform walk-forward validation with a defined n_test in the data
+
+    Parameters
+    ----------
+    df (pd.DataFrame) - input timeseries DataFrame
+    n_test (int) - number of test points
+    n_validation (int) - number of validation points
+    type - specifies validation or test predictions, which to output
+    """
+    train, valid, test1, test2, test3 = train_test_split(df, n_test, n_validation)
+    l1, l2, l3 = len(test1), len(test2), len(test3)
+    model = Prophet()
+    if type == 'valid':
+        
