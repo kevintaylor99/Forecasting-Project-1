@@ -137,3 +137,6 @@ def walk_forward_validation_sarimax(df, n_test, n_validation, p, d, q, s_p, s_d,
         predictions = model_fit.forecast(len(test1) + len(test2) + len(test3))
         # estimate error
         return train.append(valid), [test1, test2, test3], model_fit.predict(), [predictions[:l1], predictions[l1:l1+l2], predictions[l1+l2:]]
+    
+def walk_forward_validation_prophet(df, n_test, n_validation, type = 'valid'):
+    
