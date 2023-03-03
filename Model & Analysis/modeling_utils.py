@@ -185,6 +185,9 @@ def walk_forward_validation_prophet(df, n_test, n_validation, type, period, four
         predictions = [model.predict(
             pd.DataFrame({'ds': df['ds']}))[['ds', 'yhat']].set_index('ds').rename(columns = {'yhat': 'value'})
             for df in [test1, test2, test3]]
+        test1 = train.rename(columns = {'y': 'value'}).set_index('ds')
+        test2 = train.rename(columns = {'y': 'value'}).set_index('ds')
+        test3 = train.rename(columns = {'y': 'value'}).set_index('ds')
         return train.append(valid).rename(columns = {'y': 'value'}).set_index('ds'), [test1, test2, test3], fit, predictions
         
 
